@@ -1,6 +1,6 @@
 import os
 import shutil
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -22,15 +22,25 @@ app = FastAPI(
 
 
 # =========================================================
-# CORS SETTINGS (Permissive for all Frontends & Vercel)
+# CORS SETTINGS
 # =========================================================
+
+origins = [
+    "https://kaliraja-portfolio.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
+    allow_origins=origins,
+    allow_origin_regex=r"https://kaliraja-portfolio.*\.vercel\.app",
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 
@@ -104,10 +114,10 @@ def health_check():
 
 @app.post("/admin/login")
 def admin_login(data: LoginRequest):
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
-
     try:
+        connection = get_connection()
+        cursor = connection.cursor(dictionary=True)
+
         cursor.execute(
             """
             SELECT id, username, password
@@ -118,8 +128,22 @@ def admin_login(data: LoginRequest):
         )
 
         admin = cursor.fetchone()
+        cursor.close()
+        connection.close()
 
-        if not admin or not pwd_context.verify(data.password, admin["password"]):
+        if not admin:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid username or password"
+            )
+
+        is_valid = False
+        try:
+            is_valid = pwd_context.verify(data.password, admin["password"])
+        except Exception:
+            is_valid = (data.password == admin["password"])
+
+        if not is_valid:
             raise HTTPException(
                 status_code=401,
                 detail="Invalid username or password"
@@ -131,9 +155,14 @@ def admin_login(data: LoginRequest):
             "username": admin["username"]
         }
 
-    finally:
-        cursor.close()
-        connection.close()
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"Login error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database or Server error: {str(e)}"
+        )
 
 
 # =========================================================
