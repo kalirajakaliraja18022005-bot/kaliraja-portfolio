@@ -4,11 +4,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Extract clean host (strictly removes any port or scheme)
+# Service URI if provided, or individual variables
 raw_host = os.getenv("DB_HOST", "mysql-c5fed6-kalirajakaliraja18022005-d8fc.l.aivencloud.com")
-clean_host = raw_host.replace("https://", "").replace("http://", "").replace("mysql://", "").split(":")[0].strip()
+# Fix potential '1' vs 'l' typo and strip scheme/port
+clean_host = raw_host.replace("https://", "").replace("http://", "").replace("mysql://", "").split(":")[0].replace(".1.aivencloud", ".l.aivencloud").strip()
 
-# Extract clean port
 raw_port = os.getenv("DB_PORT", "13156")
 try:
     clean_port = int(str(raw_port).split(":")[-1].split("/")[0])
