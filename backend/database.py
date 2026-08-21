@@ -10,7 +10,8 @@ DB_CONFIG = {
     "user": os.getenv("DB_USER", "avnadmin"),
     "password": os.getenv("DB_PASSWORD", "AVNS_N_OInvjLOxXAmyqr3LI"),
     "database": os.getenv("DB_NAME", "defaultdb"),
-    "ssl_disabled": False
+    "ssl_disabled": False,
+    "ssl_verify_cert": False
 }
 
 def get_connection():
