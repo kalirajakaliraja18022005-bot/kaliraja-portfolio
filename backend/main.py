@@ -46,9 +46,25 @@ class SkillCreate(BaseModel):
     name: str
     description: str
 
+def seed_admin_user():
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id FROM admin WHERE username = 'admin'")
+        row = cursor.fetchone()
+        hashed = pwd_context.hash("admin123")
+        if not row:
+            cursor.execute("INSERT INTO admin (username, password) VALUES (?, ?)", ("admin", hashed))
+        else:
+            cursor.execute("UPDATE admin SET password = ? WHERE username = 'admin'", (hashed,))
+        conn.commit()
+    finally:
+        conn.close()
+
 @app.on_event("startup")
 def startup_event():
     create_tables()
+    seed_admin_user()
 
 @app.get("/")
 def home():
@@ -56,7 +72,8 @@ def home():
 
 @app.get("/health")
 def health_check():
-    return {"status": "OK", "database": "Connected SQLite"}
+    seed_admin_user()
+    return {"status": "OK", "database": "Connected SQLite", "admin": "Ready"}
 
 @app.post("/admin/login")
 def admin_login(data: LoginRequest):
