@@ -4,12 +4,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Extract raw host and strip any port or protocol accidentally appended
+# Extract clean host (strictly removes any port or scheme)
 raw_host = os.getenv("DB_HOST", "mysql-c5fed6-kalirajakaliraja18022005-d8fc.l.aivencloud.com")
-clean_host = raw_host.split(":")[0].replace("https://", "").replace("http://", "").replace("mysql://", "").strip()
+clean_host = raw_host.replace("https://", "").replace("http://", "").replace("mysql://", "").split(":")[0].strip()
 
+# Extract clean port
 raw_port = os.getenv("DB_PORT", "13156")
-clean_port = int(str(raw_port).split("/")[-1])
+try:
+    clean_port = int(str(raw_port).split(":")[-1].split("/")[0])
+except Exception:
+    clean_port = 13156
 
 DB_CONFIG = {
     "host": clean_host,
