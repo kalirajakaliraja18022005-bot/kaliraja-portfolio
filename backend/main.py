@@ -1,6 +1,6 @@
 import os
 import shutil
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Response
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -8,7 +8,6 @@ from passlib.context import CryptContext
 
 from models import create_tables
 from database import get_connection
-
 
 # =========================================================
 # FASTAPI APP
@@ -20,9 +19,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
-
 # =========================================================
-# CORS SETTINGS
+# CORS SETTINGS (Vercel & Localhost Preflight Support)
 # =========================================================
 
 origins = [
@@ -43,15 +41,13 @@ app.add_middleware(
     expose_headers=["*"]
 )
 
-
 # =========================================================
 # STATIC FILES (Uploads Folder)
 # =========================================================
 
-UPLOAD_DIR = "uploads"
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-
 
 # =========================================================
 # PASSWORD ENCRYPTION
@@ -62,7 +58,6 @@ pwd_context = CryptContext(
     deprecated="auto"
 )
 
-
 # =========================================================
 # MODELS
 # =========================================================
@@ -71,11 +66,9 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
-
 class SkillCreate(BaseModel):
     name: str
     description: str
-
 
 # =========================================================
 # STARTUP
@@ -88,7 +81,6 @@ def startup_event():
     except Exception as e:
         print(f"Startup table creation warning: {e}")
 
-
 # =========================================================
 # HOME & HEALTH
 # =========================================================
@@ -99,14 +91,12 @@ def home():
         "message": "Kaliraja Portfolio API is running"
     }
 
-
 @app.get("/health")
 def health_check():
     return {
         "status": "OK",
-        "database": "Connected"
+        "database": "Connected SQLite"
     }
-
 
 # =========================================================
 # ADMIN LOGIN
@@ -114,28 +104,23 @@ def health_check():
 
 @app.post("/admin/login")
 def admin_login(data: LoginRequest):
-    try:
-        connection = get_connection()
-        cursor = connection.cursor(dictionary=True)
+    conn = get_connection()
+    cursor = conn.cursor()
 
+    try:
         cursor.execute(
-            """
-            SELECT id, username, password
-            FROM admin
-            WHERE username = %s
-            """,
+            "SELECT id, username, password FROM admin WHERE username = ?",
             (data.username,)
         )
+        row = cursor.fetchone()
 
-        admin = cursor.fetchone()
-        cursor.close()
-        connection.close()
-
-        if not admin:
+        if not row:
             raise HTTPException(
                 status_code=401,
                 detail="Invalid username or password"
             )
+
+        admin = dict(row)
 
         is_valid = False
         try:
@@ -163,7 +148,8 @@ def admin_login(data: LoginRequest):
             status_code=500,
             detail=f"Database or Server error: {str(e)}"
         )
-
+    finally:
+        conn.close()
 
 # =========================================================
 # PROJECTS API
@@ -171,71 +157,47 @@ def admin_login(data: LoginRequest):
 
 @app.get("/projects")
 def get_projects():
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
+    conn = get_connection()
+    cursor = conn.cursor()
 
     try:
         cursor.execute(
             """
-            SELECT
-                id,
-                title,
-                description,
-                technologies,
-                github_url,
-                live_url,
-                image_url,
-                created_at
+            SELECT id, title, description, technologies, github_url, live_url, image_url, created_at
             FROM projects
             ORDER BY id DESC
             """
         )
-
-        projects = cursor.fetchall()
+        projects = [dict(row) for row in cursor.fetchall()]
         return {"projects": projects}
-
     finally:
-        cursor.close()
-        connection.close()
-
+        conn.close()
 
 @app.get("/projects/{project_id}")
 def get_project(project_id: int):
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
+    conn = get_connection()
+    cursor = conn.cursor()
 
     try:
         cursor.execute(
             """
-            SELECT
-                id,
-                title,
-                description,
-                technologies,
-                github_url,
-                live_url,
-                image_url,
-                created_at
+            SELECT id, title, description, technologies, github_url, live_url, image_url, created_at
             FROM projects
-            WHERE id = %s
+            WHERE id = ?
             """,
             (project_id,)
         )
+        row = cursor.fetchone()
 
-        project = cursor.fetchone()
-
-        if not project:
+        if not row:
             raise HTTPException(
                 status_code=404,
                 detail="Project not found"
             )
 
-        return project
-
+        return dict(row)
     finally:
-        cursor.close()
-        connection.close()
-
+        conn.close()
 
 @app.post("/projects")
 def add_project(
@@ -254,45 +216,24 @@ def add_project(
             shutil.copyfileobj(image.file, buffer)
         image_url = f"/uploads/{filename}"
 
-    connection = get_connection()
-    cursor = connection.cursor()
+    conn = get_connection()
+    cursor = conn.cursor()
 
     try:
         cursor.execute(
             """
-            INSERT INTO projects
-            (
-                title,
-                description,
-                technologies,
-                github_url,
-                live_url,
-                image_url
-            )
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO projects (title, description, technologies, github_url, live_url, image_url)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (
-                title,
-                description,
-                technologies,
-                github_url,
-                live_url,
-                image_url
-            )
+            (title, description, technologies, github_url, live_url, image_url)
         )
-
-        connection.commit()
-        project_id = cursor.lastrowid
-
+        conn.commit()
         return {
             "message": "Project added successfully",
-            "project_id": project_id
+            "project_id": cursor.lastrowid
         }
-
     finally:
-        cursor.close()
-        connection.close()
-
+        conn.close()
 
 @app.put("/projects/{project_id}")
 def update_project(
@@ -304,23 +245,20 @@ def update_project(
     live_url: str = Form(""),
     image: UploadFile = File(None)
 ):
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
+    conn = get_connection()
+    cursor = conn.cursor()
 
     try:
-        cursor.execute(
-            "SELECT id, image_url FROM projects WHERE id = %s",
-            (project_id,)
-        )
-        project = cursor.fetchone()
+        cursor.execute("SELECT id, image_url FROM projects WHERE id = ?", (project_id,))
+        row = cursor.fetchone()
 
-        if not project:
+        if not row:
             raise HTTPException(
                 status_code=404,
                 detail="Project not found"
             )
 
-        image_url = project["image_url"]
+        image_url = dict(row)["image_url"]
         if image and image.filename:
             filename = f"proj_{image.filename}"
             file_path = os.path.join(UPLOAD_DIR, filename)
@@ -331,70 +269,42 @@ def update_project(
         cursor.execute(
             """
             UPDATE projects
-            SET
-                title = %s,
-                description = %s,
-                technologies = %s,
-                github_url = %s,
-                live_url = %s,
-                image_url = %s
-            WHERE id = %s
+            SET title = ?, description = ?, technologies = ?, github_url = ?, live_url = ?, image_url = ?
+            WHERE id = ?
             """,
-            (
-                title,
-                description,
-                technologies,
-                github_url,
-                live_url,
-                image_url,
-                project_id
-            )
+            (title, description, technologies, github_url, live_url, image_url, project_id)
         )
+        conn.commit()
 
-        connection.commit()
         return {
             "message": "Project updated successfully",
             "project_id": project_id
         }
-
     finally:
-        cursor.close()
-        connection.close()
-
+        conn.close()
 
 @app.delete("/projects/{project_id}")
 def delete_project(project_id: int):
-    connection = get_connection()
-    cursor = connection.cursor()
+    conn = get_connection()
+    cursor = conn.cursor()
 
     try:
-        cursor.execute(
-            "SELECT id FROM projects WHERE id = %s",
-            (project_id,)
-        )
-        project = cursor.fetchone()
-
-        if not project:
+        cursor.execute("SELECT id FROM projects WHERE id = ?", (project_id,))
+        if not cursor.fetchone():
             raise HTTPException(
                 status_code=404,
                 detail="Project not found"
             )
 
-        cursor.execute(
-            "DELETE FROM projects WHERE id = %s",
-            (project_id,)
-        )
-        connection.commit()
+        cursor.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        conn.commit()
 
         return {
             "message": "Project deleted successfully",
             "project_id": project_id
         }
-
     finally:
-        cursor.close()
-        connection.close()
-
+        conn.close()
 
 # =========================================================
 # SKILLS API
@@ -402,63 +312,44 @@ def delete_project(project_id: int):
 
 @app.get("/skills")
 def get_skills():
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
+    conn = get_connection()
+    cursor = conn.cursor()
 
     try:
         cursor.execute(
-            """
-            SELECT id, name, description, created_at
-            FROM skills
-            ORDER BY id DESC
-            """
+            "SELECT id, name, description, created_at FROM skills ORDER BY id DESC"
         )
-        skills = cursor.fetchall()
+        skills = [dict(row) for row in cursor.fetchall()]
         return {"skills": skills}
-
     finally:
-        cursor.close()
-        connection.close()
-
+        conn.close()
 
 @app.post("/skills")
 def add_skill(data: SkillCreate):
-    connection = get_connection()
-    cursor = connection.cursor()
+    conn = get_connection()
+    cursor = conn.cursor()
 
     try:
         cursor.execute(
-            """
-            INSERT INTO skills (name, description)
-            VALUES (%s, %s)
-            """,
+            "INSERT INTO skills (name, description) VALUES (?, ?)",
             (data.name, data.description)
         )
-        connection.commit()
+        conn.commit()
         return {"message": "Skill added successfully"}
-
     finally:
-        cursor.close()
-        connection.close()
-
+        conn.close()
 
 @app.delete("/skills/{skill_id}")
 def delete_skill(skill_id: int):
-    connection = get_connection()
-    cursor = connection.cursor()
+    conn = get_connection()
+    cursor = conn.cursor()
 
     try:
-        cursor.execute(
-            "DELETE FROM skills WHERE id = %s",
-            (skill_id,)
-        )
-        connection.commit()
+        cursor.execute("DELETE FROM skills WHERE id = ?", (skill_id,))
+        conn.commit()
         return {"message": "Skill deleted successfully"}
-
     finally:
-        cursor.close()
-        connection.close()
-
+        conn.close()
 
 # =========================================================
 # PROFILE & RESUME API
@@ -466,38 +357,30 @@ def delete_skill(skill_id: int):
 
 @app.get("/profile")
 def get_profile():
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
+    conn = get_connection()
+    cursor = conn.cursor()
 
     try:
         cursor.execute(
-            """
-            SELECT id, name, email, profile_image, resume_file
-            FROM profile
-            WHERE id = 1
-            """
+            "SELECT id, name, email, profile_image, resume_file FROM profile WHERE id = 1"
         )
-        profile = cursor.fetchone()
-        return profile or {}
-
+        row = cursor.fetchone()
+        return dict(row) if row else {}
     finally:
-        cursor.close()
-        connection.close()
-
+        conn.close()
 
 @app.post("/profile/upload")
 def upload_profile_assets(
     profile_image: UploadFile = File(None),
     resume_file: UploadFile = File(None)
 ):
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
+    conn = get_connection()
+    cursor = conn.cursor()
 
     try:
-        cursor.execute(
-            "SELECT profile_image, resume_file FROM profile WHERE id = 1"
-        )
-        current = cursor.fetchone() or {"profile_image": "", "resume_file": ""}
+        cursor.execute("SELECT profile_image, resume_file FROM profile WHERE id = 1")
+        row = cursor.fetchone()
+        current = dict(row) if row else {"profile_image": "", "resume_file": ""}
 
         img_path = current.get("profile_image") or ""
         if profile_image and profile_image.filename:
@@ -516,21 +399,15 @@ def upload_profile_assets(
             pdf_path = f"/uploads/{filename}"
 
         cursor.execute(
-            """
-            UPDATE profile
-            SET profile_image = %s, resume_file = %s
-            WHERE id = 1
-            """,
+            "UPDATE profile SET profile_image = ?, resume_file = ? WHERE id = 1",
             (img_path, pdf_path)
         )
-        connection.commit()
+        conn.commit()
 
         return {
             "message": "Assets updated successfully",
             "profile_image": img_path,
             "resume_file": pdf_path
         }
-
     finally:
-        cursor.close()
-        connection.close()
+        conn.close()
