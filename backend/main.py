@@ -1,13 +1,16 @@
 import os
 import shutil
+import hashlib
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from passlib.context import CryptContext
 
 from models import create_tables
 from database import get_connection
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 app = FastAPI(
     title="Kaliraja Portfolio API",
@@ -36,8 +39,6 @@ UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -46,25 +47,12 @@ class SkillCreate(BaseModel):
     name: str
     description: str
 
-def seed_admin_user():
-    conn = get_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute("SELECT id FROM admin WHERE username = 'admin'")
-        row = cursor.fetchone()
-        hashed = pwd_context.hash("admin123")
-        if not row:
-            cursor.execute("INSERT INTO admin (username, password) VALUES (?, ?)", ("admin", hashed))
-        else:
-            cursor.execute("UPDATE admin SET password = ? WHERE username = 'admin'", (hashed,))
-        conn.commit()
-    finally:
-        conn.close()
-
 @app.on_event("startup")
 def startup_event():
-    create_tables()
-    seed_admin_user()
+    try:
+        create_tables()
+    except Exception as e:
+        print(f"Startup error: {e}")
 
 @app.get("/")
 def home():
@@ -72,7 +60,7 @@ def home():
 
 @app.get("/health")
 def health_check():
-    seed_admin_user()
+    create_tables()
     return {"status": "OK", "database": "Connected SQLite", "admin": "Ready"}
 
 @app.post("/admin/login")
@@ -86,16 +74,16 @@ def admin_login(data: LoginRequest):
             raise HTTPException(status_code=401, detail="Invalid username or password")
 
         admin = dict(row)
-        is_valid = False
-        try:
-            is_valid = pwd_context.verify(data.password, admin["password"])
-        except Exception:
-            is_valid = (data.password == admin["password"])
+        input_hash = hash_password(data.password)
 
-        if not is_valid:
+        if input_hash != admin["password"] and data.password != admin["password"]:
             raise HTTPException(status_code=401, detail="Invalid username or password")
 
-        return {"message": "Login successful", "admin_id": admin["id"], "username": admin["username"]}
+        return {
+            "message": "Login successful",
+            "admin_id": admin["id"],
+            "username": admin["username"]
+        }
     finally:
         conn.close()
 
@@ -105,8 +93,7 @@ def get_projects():
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT id, title, description, technologies, github_url, live_url, image_url, created_at FROM projects ORDER BY id DESC")
-        projects = [dict(row) for row in cursor.fetchall()]
-        return {"projects": projects}
+        return {"projects": [dict(row) for row in cursor.fetchall()]}
     finally:
         conn.close()
 

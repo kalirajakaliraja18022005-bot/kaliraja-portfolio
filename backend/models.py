@@ -1,12 +1,14 @@
+import hashlib
 from database import get_connection
-from passlib.context import CryptContext
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 def create_tables():
     conn = get_connection()
     cursor = conn.cursor()
 
+    # 1. Admin table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS admin (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -15,6 +17,7 @@ def create_tables():
         )
     """)
 
+    # 2. Projects table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS projects (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,6 +31,7 @@ def create_tables():
         )
     """)
 
+    # 3. Skills table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS skills (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,6 +41,7 @@ def create_tables():
         )
     """)
 
+    # 4. Profile table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS profile (
             id INTEGER PRIMARY KEY,
@@ -47,11 +52,16 @@ def create_tables():
         )
     """)
 
+    # Auto Seed Admin
     cursor.execute("SELECT id FROM admin WHERE username = 'admin'")
-    if not cursor.fetchone():
-        hashed_pwd = pwd_context.hash("admin123")
-        cursor.execute("INSERT INTO admin (username, password) VALUES (?, ?)", ("admin", hashed_pwd))
+    row = cursor.fetchone()
+    admin_hash = hash_password("admin123")
+    if not row:
+        cursor.execute("INSERT INTO admin (username, password) VALUES (?, ?)", ("admin", admin_hash))
+    else:
+        cursor.execute("UPDATE admin SET password = ? WHERE username = 'admin'", (admin_hash,))
 
+    # Auto Seed Profile
     cursor.execute("SELECT id FROM profile WHERE id = 1")
     if not cursor.fetchone():
         cursor.execute(
@@ -61,4 +71,4 @@ def create_tables():
 
     conn.commit()
     conn.close()
-    print("Local SQLite Database & Admin initialized successfully!")
+    print("Database and admin initialized successfully with built-in hashing!")
