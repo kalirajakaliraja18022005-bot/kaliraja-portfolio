@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import {
   ArrowUpRight,
   BarChart3,
@@ -20,6 +20,7 @@ import {
 
 import "./styles.css";
 import { supabase } from "./supabaseClient";
+import AdminLogin from "./AdminLogin";
 import AdminDashboard from "./AdminDashboard";
 
 function getProjectIcon(project) {
@@ -31,6 +32,7 @@ function getProjectIcon(project) {
 
 function PortfolioHome() {
   const [open, setOpen] = useState(false);
+  const [profile, setProfile] = useState({});
   const [projects, setProjects] = useState([]);
   const [skills, setSkills] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,8 +40,11 @@ function PortfolioHome() {
   useEffect(() => {
     async function loadData() {
       setLoading(true);
+      const { data: profData } = await supabase.from("profile").select("*").eq("id", 1).single();
       const { data: pData } = await supabase.from("projects").select("*").order("id", { ascending: false });
       const { data: sData } = await supabase.from("skills").select("*").order("id", { ascending: false });
+
+      if (profData) setProfile(profData);
       if (pData) setProjects(pData);
       if (sData) setSkills(sData);
       setLoading(false);
@@ -52,11 +57,20 @@ function PortfolioHome() {
     setOpen(false);
   };
 
+  const name = profile.name || "Kaliraja S";
+  const title = profile.title || "Full Stack Developer & AI Enthusiast";
+  const bio = profile.bio || "Computer Science graduate focused on building web applications and AI platforms.";
+  const email = profile.email || "kaliraja@example.com";
+  const github = profile.github || "https://github.com/kalirajakaliraja18022005-bot";
+  const linkedin = profile.linkedin || "https://linkedin.com/";
+  const profileImg = profile.profile_image || "/images/profile.jpg";
+  const resumeUrl = profile.resume_file || "/resume.pdf";
+
   return (
     <div className="app">
       <nav className="nav">
         <button className="brand" onClick={() => go("home")}>
-          <span>K</span> Kaliraja S
+          <span>K</span> {name}
         </button>
 
         <div className={`nav-links ${open ? "show" : ""}`}>
@@ -65,7 +79,7 @@ function PortfolioHome() {
               {id[0].toUpperCase() + id.slice(1)}
             </button>
           ))}
-          <a className="nav-resume" href="/resume.pdf" target="_blank" rel="noreferrer" download>
+          <a className="nav-resume" href={resumeUrl} target="_blank" rel="noreferrer" download>
             Resume <Download size={16} />
           </a>
         </div>
@@ -79,10 +93,10 @@ function PortfolioHome() {
         {/* HERO */}
         <section id="home" className="hero section">
           <div className="hero-copy">
-            <p className="eyebrow">FULL STACK DEVELOPER & AI ENTHUSIAST</p>
+            <p className="eyebrow">{title.toUpperCase()}</p>
             <h1>Turning <span>ideas</span> into<br />impactful solutions.</h1>
             <p className="hero-text">
-              Hi, I'm <strong>Kaliraja S</strong>, a Computer Science graduate building scalable web applications, modern UIs, and AI-driven platforms.
+              Hi, I'm <strong>{name}</strong>. {bio}
             </p>
             <div className="hero-actions">
               <button className="primary" onClick={() => go("projects")}>
@@ -97,7 +111,7 @@ function PortfolioHome() {
 
           <div className="hero-card">
             <div className="profile-circle">
-              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80" alt="Kaliraja S" />
+              <img src={profileImg} alt={name} />
             </div>
             <div className="mini-stat"><span>Focus</span><strong>Full Stack & AI</strong></div>
             <div className="mini-stat"><span>Tools</span><strong>React · Node · Python · Tailwind</strong></div>
@@ -112,8 +126,8 @@ function PortfolioHome() {
             <h2>Passionate about code.<br /><span>Driven by innovation.</span></h2>
           </div>
           <div className="about-grid">
-            <p>I am a Computer Science graduate passionate about building responsive web applications and AI-enabled systems.</p>
-            <p>My core skills include React, Node.js, Express, MongoDB, Tailwind CSS, Python, and integrating modern AI APIs.</p>
+            <p>{bio}</p>
+            <p>I specialize in building end-to-end full-stack web architectures, clean user interfaces, and integrating modern AI models.</p>
           </div>
         </section>
 
@@ -142,7 +156,7 @@ function PortfolioHome() {
           </div>
 
           {loading ? (
-            <p style={{ color: "#64717d" }}>Loading projects...</p>
+            <p style={{ color: "#64717d" }}>Loading projects from cloud database...</p>
           ) : (
             <div className="projects-grid">
               {projects.map((project) => {
@@ -205,16 +219,16 @@ function PortfolioHome() {
             <h2>Let's <span>connect.</span></h2>
           </div>
           <div className="contact-links">
-            <a href="mailto:kaliraja@example.com"><Mail size={20} /> kaliraja@example.com</a>
-            <a href="https://linkedin.com/" target="_blank" rel="noreferrer"><Linkedin size={20} /> LinkedIn</a>
-            <a href="https://github.com/kalirajakaliraja18022005-bot" target="_blank" rel="noreferrer"><Github size={20} /> GitHub</a>
+            <a href={`mailto:${email}`}><Mail size={20} /> {email}</a>
+            <a href={linkedin} target="_blank" rel="noreferrer"><Linkedin size={20} /> LinkedIn</a>
+            <a href={github} target="_blank" rel="noreferrer"><Github size={20} /> GitHub</a>
           </div>
         </section>
       </main>
 
       <footer>
-        <span>© {new Date().getFullYear()} Kaliraja S</span>
-        <span>Connected with Cloud Database</span>
+        <span>© {new Date().getFullYear()} {name}</span>
+        <span>Connected to Supabase Cloud Database</span>
       </footer>
     </div>
   );
@@ -225,7 +239,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<PortfolioHome />} />
-        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="*" element={<PortfolioHome />} />
       </Routes>
