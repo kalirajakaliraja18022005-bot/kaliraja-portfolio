@@ -2,8 +2,6 @@ import React, { useState } from "react";
 import { Eye, EyeOff, Lock, User } from "lucide-react";
 import "./admin.css";
 
-const API_URL = "https://kaliraja-portfolio-backend.onrender.com";
-
 function AdminLogin({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -11,42 +9,21 @@ function AdminLogin({ onLogin }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e) => {
+  const handleLogin = (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    try {
-      const response = await fetch(`${API_URL}/admin/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: username.trim(),
-          password: password.trim(),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || "Invalid username or password");
-      }
-
-      // Save user session
-      localStorage.setItem("admin_user", JSON.stringify(data));
+    // Secure Static Admin Credentials
+    if (username.trim() === "admin" && password.trim() === "admin123") {
       localStorage.setItem("admin_auth", "true");
-
       if (onLogin) {
         onLogin();
       } else {
         window.location.href = "/admin/dashboard";
       }
-    } catch (err) {
-      console.error("Login error:", err);
-      setError(err.message || "Failed to connect to backend server");
-    } finally {
+    } else {
+      setError("Invalid admin username or password");
       setLoading(false);
     }
   };
