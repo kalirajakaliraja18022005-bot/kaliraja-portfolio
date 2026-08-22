@@ -18,29 +18,20 @@ import {
 } from "lucide-react";
 
 import "./styles.css";
-import AdminLogin from "./AdminLogin";
-import AdminDashboard from "./AdminDashboard";
-
-/* =====================================================
-   API BASE URL
-===================================================== */
-
-const API_URL = "https://kaliraja-portfolio-backend.onrender.com";
+import { portfolioData } from "./data/portfolioData";
 
 /* =====================================================
    PROJECT ICON LOGIC
 ===================================================== */
 
 function getProjectIcon(project) {
-  const text = `${project.title || ""} ${
-    project.technologies || ""
-  }`.toLowerCase();
+  const text = `${project.title || ""} ${project.technologies || ""}`.toLowerCase();
 
   if (
     text.includes("ai") ||
     text.includes("interview") ||
-    text.includes("fastapi") ||
-    text.includes("vision")
+    text.includes("vision") ||
+    text.includes("assistant")
   ) {
     return BrainCircuit;
   }
@@ -49,7 +40,7 @@ function getProjectIcon(project) {
     text.includes("sql") ||
     text.includes("mysql") ||
     text.includes("database") ||
-    text.includes("student")
+    text.includes("mongo")
   ) {
     return Database;
   }
@@ -64,67 +55,10 @@ function getProjectIcon(project) {
 function App() {
   const [open, setOpen] = React.useState(false);
 
-  const [projects, setProjects] = React.useState([]);
-  const [skills, setSkills] = React.useState([]);
-  const [profile, setProfile] = React.useState({});
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState("");
-
-  /* =====================================================
-     FETCH DYNAMIC DATA (PROJECTS, SKILLS, PROFILE)
-  ===================================================== */
-
-  const fetchPortfolioData = async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const [projRes, skillRes, profRes] = await Promise.all([
-        fetch(`${API_URL}/projects`),
-        fetch(`${API_URL}/skills`),
-        fetch(`${API_URL}/profile`),
-      ]);
-
-      if (!projRes.ok) {
-        throw new Error("Failed to fetch projects");
-      }
-
-      const projData = await projRes.json();
-      const skillData = skillRes.ok ? await skillRes.json() : { skills: [] };
-      const profData = profRes.ok ? await profRes.json() : {};
-
-      const projectList = Array.isArray(projData)
-        ? projData
-        : Array.isArray(projData.projects)
-        ? projData.projects
-        : [];
-
-      const skillList = Array.isArray(skillData)
-        ? skillData
-        : Array.isArray(skillData.skills)
-        ? skillData.skills
-        : [];
-
-      setProjects(projectList);
-      setSkills(skillList);
-      setProfile(profData || {});
-    } catch (err) {
-      console.error("Portfolio fetch error:", err);
-      setError(
-        "Unable to load projects. Please make sure the backend is running."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  React.useEffect(() => {
-    fetchPortfolioData();
-  }, []);
-
-  /* =====================================================
-     SMOOTH SCROLL
-  ===================================================== */
+  // Read data directly from static data without backend fetch failure
+  const profile = portfolioData.profile;
+  const projects = portfolioData.projects;
+  const skills = portfolioData.skills;
 
   const go = (id) => {
     document.getElementById(id)?.scrollIntoView({
@@ -133,14 +67,8 @@ function App() {
     setOpen(false);
   };
 
-  // Dynamic Assets with Fallbacks
-  const resumeDownloadUrl = profile.resume_file
-    ? `${API_URL}${profile.resume_file}`
-    : "/resume.pdf";
-
-  const profileImageUrl = profile.profile_image
-    ? `${API_URL}${profile.profile_image}`
-    : "/images/profile.jpg";
+  const resumeDownloadUrl = profile.resumeUrl || "/resume.pdf";
+  const profileImageUrl = profile.profileImage || "/images/profile.jpg";
 
   return (
     <div className="app">
@@ -155,7 +83,7 @@ function App() {
           onClick={() => go("home")}
         >
           <span>K</span>
-          Kaliraja S
+          {profile.name}
         </button>
 
         <div className={`nav-links ${open ? "show" : ""}`}>
@@ -201,18 +129,17 @@ function App() {
         >
           <div className="hero-copy">
             <p className="eyebrow">
-              ASPIRING DATA ANALYST
+              {profile.title.toUpperCase()}
             </p>
 
             <h1>
-              Turning <span>data</span> into
+              Turning <span>ideas</span> into
               <br />
-              meaningful insights.
+              impactful solutions.
             </h1>
 
             <p className="hero-text">
-              Hi, I'm <strong>Kaliraja S</strong>, a B.Sc Computer Science
-              graduate focused on Data Analytics, SQL, Python, and Power BI.
+              Hi, I'm <strong>{profile.name}</strong>. {profile.bio}
             </p>
 
             <div className="hero-actions">
@@ -244,18 +171,18 @@ function App() {
             <div className="profile-circle">
               <img
                 src={profileImageUrl}
-                alt="Kaliraja S"
+                alt={profile.name}
               />
             </div>
 
             <div className="mini-stat">
               <span>Focus</span>
-              <strong>Data Analytics</strong>
+              <strong>Full Stack & AI</strong>
             </div>
 
             <div className="mini-stat">
               <span>Tools</span>
-              <strong>Python · SQL · Power BI</strong>
+              <strong>React · Node · Python · Tailwind</strong>
             </div>
 
             <div className="mini-stat">
@@ -279,29 +206,25 @@ function App() {
             </p>
 
             <h2>
-              Curious about data.
+              Passionate about code.
               <br />
-              <span>Focused on growth.</span>
+              <span>Driven by innovation.</span>
             </h2>
           </div>
 
           <div className="about-grid">
             <p>
-              I am a Computer Science graduate building my career in Data
-              Analytics. I enjoy working with data, finding patterns, and
-              presenting information clearly to drive better decisions.
+              I am a final-year Computer Science graduate focused on building scalable, user-centric web applications and modern AI solutions.
             </p>
 
             <p>
-              My stack includes Python, Pandas, NumPy, SQL, MySQL, Excel, and
-              Power BI, along with hands-on experience building full-stack web
-              and AI-driven applications.
+              My tech stack revolves around React, Node.js, Express, MongoDB, Tailwind CSS, Python, and integrating cutting-edge AI APIs to solve real-world problems.
             </p>
           </div>
         </section>
 
         {/* =================================================
-            SKILLS (DYNAMIC FROM DB)
+            SKILLS
         ================================================= */}
 
         <section
@@ -314,34 +237,29 @@ function App() {
             </p>
 
             <h2>
-              Tools I use to{" "}
-              <span>work with data.</span>
+              Tools & Technologies I work with.
             </h2>
           </div>
 
           <div className="skills-grid">
-            {skills.length > 0 ? (
-              skills.map((s) => (
-                <div
-                  className="skill-card"
-                  key={s.id || s.name}
-                >
-                  <div className="icon-box">
-                    <Code2 size={22} />
-                  </div>
-
-                  <h3>{s.name}</h3>
-                  <p>{s.description}</p>
+            {skills.map((s) => (
+              <div
+                className="skill-card"
+                key={s.id || s.name}
+              >
+                <div className="icon-box">
+                  <Code2 size={22} />
                 </div>
-              ))
-            ) : (
-              <p style={{ color: "#64717d" }}>No skills added yet.</p>
-            )}
+
+                <h3>{s.name}</h3>
+                <p>{s.description}</p>
+              </div>
+            ))}
           </div>
         </section>
 
         {/* =================================================
-            PROJECTS (DYNAMIC WITH IMAGES)
+            PROJECTS
         ================================================= */}
 
         <section
@@ -359,133 +277,105 @@ function App() {
             </h2>
           </div>
 
-          {/* PROJECT LOADING */}
-          {loading && (
-            <p style={{ color: "#64717d" }}>
-              Loading projects...
-            </p>
-          )}
+          <div className="projects-grid">
+            {projects.map((project) => {
+              const Icon = getProjectIcon(project);
 
-          {/* PROJECT ERROR */}
-          {error && (
-            <p style={{ color: "#c0392b" }}>
-              {error}
-            </p>
-          )}
+              const technologies = project.technologies
+                ? project.technologies
+                    .split(",")
+                    .map((item) => item.trim())
+                    .filter(Boolean)
+                : [];
 
-          {/* PROJECT CARDS */}
-          {!loading && !error && projects.length > 0 && (
-            <div className="projects-grid">
-              {projects.map((project) => {
-                const Icon = getProjectIcon(project);
+              return (
+                <article
+                  className="project-card"
+                  key={project.id || project.title}
+                >
+                  <div className="project-icon">
+                    <Icon size={24} />
+                  </div>
 
-                const technologies = project.technologies
-                  ? project.technologies
-                      .split(",")
-                      .map((item) => item.trim())
-                      .filter(Boolean)
-                  : [];
+                  <div>
+                    {project.imageUrl && (
+                      <img
+                        src={project.imageUrl}
+                        alt={project.title}
+                        style={{
+                          width: "100%",
+                          height: "190px",
+                          objectFit: "cover",
+                          borderRadius: "10px",
+                          marginBottom: "14px",
+                          border: "1px solid #dfe5e9",
+                        }}
+                      />
+                    )}
 
-                return (
-                  <article
-                    className="project-card"
-                    key={project.id || project.title}
-                  >
-                    <div className="project-icon">
-                      <Icon size={24} />
-                    </div>
+                    <p className="project-label">
+                      PROJECT
+                    </p>
 
-                    <div>
-                      {/* Uploaded Project Thumbnail Image */}
-                      {project.image_url && (
-                        <img
-                          src={`${API_URL}${project.image_url}`}
-                          alt={project.title}
-                          style={{
-                            width: "100%",
-                            height: "190px",
-                            objectFit: "cover",
-                            borderRadius: "10px",
-                            marginBottom: "14px",
-                            border: "1px solid #dfe5e9",
-                          }}
-                        />
-                      )}
+                    <h3>{project.title}</h3>
+                    <p>{project.description}</p>
 
-                      <p className="project-label">
-                        PROJECT
-                      </p>
+                    {technologies.length > 0 && (
+                      <div className="tags">
+                        {technologies.map((tag) => (
+                          <span key={tag}>{tag}</span>
+                        ))}
+                      </div>
+                    )}
 
-                      <h3>{project.title}</h3>
+                    {(project.githubUrl || project.liveUrl) && (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "10px",
+                          marginTop: "18px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        {project.githubUrl && (
+                          <a
+                            href={project.githubUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="secondary"
+                            style={{
+                              padding: "8px 12px",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <Github size={15} />
+                            GitHub
+                            <ExternalLink size={14} />
+                          </a>
+                        )}
 
-                      <p>{project.description}</p>
-
-                      {/* TECHNOLOGIES */}
-                      {technologies.length > 0 && (
-                        <div className="tags">
-                          {technologies.map((tag) => (
-                            <span key={tag}>{tag}</span>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* PROJECT LINKS */}
-                      {(project.github_url || project.live_url) && (
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "10px",
-                            marginTop: "18px",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          {project.github_url && (
-                            <a
-                              href={project.github_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="secondary"
-                              style={{
-                                padding: "8px 12px",
-                                fontSize: "12px",
-                              }}
-                            >
-                              <Github size={15} />
-                              GitHub
-                              <ExternalLink size={14} />
-                            </a>
-                          )}
-
-                          {project.live_url && (
-                            <a
-                              href={project.live_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="secondary"
-                              style={{
-                                padding: "8px 12px",
-                                fontSize: "12px",
-                              }}
-                            >
-                              Live Demo
-                              <ExternalLink size={14} />
-                            </a>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-
-          {/* NO PROJECTS */}
-          {!loading && !error && projects.length === 0 && (
-            <p style={{ color: "#64717d" }}>
-              No projects added yet.
-            </p>
-          )}
+                        {project.liveUrl && (
+                          <a
+                            href={project.liveUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="secondary"
+                            style={{
+                              padding: "8px 12px",
+                              fontSize: "12px",
+                            }}
+                          >
+                            Live Demo
+                            <ExternalLink size={14} />
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </section>
 
         {/* =================================================
@@ -500,13 +390,11 @@ function App() {
               </p>
 
               <h2>
-                Ready to start my journey in{" "}
-                <span>Data Analytics.</span>
+                Ready to build scalable web & <span>AI applications.</span>
               </h2>
 
               <p>
-                Looking for an opportunity where I can apply my analytical
-                skills, learn from real-world data, and deliver impactful business insights.
+                Actively seeking opportunities to work as a Software Engineer / Full Stack Developer where I can build impactful tech solutions and grow rapidly.
               </p>
             </div>
 
@@ -531,24 +419,22 @@ function App() {
             </p>
 
             <h2>
-              Let's{" "}
-              <span>connect.</span>
+              Let's <span>connect.</span>
             </h2>
 
             <p>
-              If you have an opportunity or want to collaborate on a project,
-              feel free to reach out.
+              Feel free to reach out for project collaborations or full-time opportunities.
             </p>
           </div>
 
           <div className="contact-links">
-            <a href="mailto:your-email@example.com">
+            <a href={`mailto:${profile.email}`}>
               <Mail size={20} />
-              your-email@example.com
+              {profile.email}
             </a>
 
             <a
-              href="https://www.linkedin.com/"
+              href={profile.linkedin}
               target="_blank"
               rel="noreferrer"
             >
@@ -557,7 +443,7 @@ function App() {
             </a>
 
             <a
-              href="https://github.com/kalirajakaliraja18022005-bot"
+              href={profile.github}
               target="_blank"
               rel="noreferrer"
             >
@@ -575,11 +461,10 @@ function App() {
 
       <footer>
         <span>
-          © {new Date().getFullYear()} Kaliraja S
+          © {new Date().getFullYear()} {profile.name}
         </span>
-
         <span>
-          Built with React & FastAPI
+          Built with React & Vite
         </span>
       </footer>
 
@@ -588,38 +473,7 @@ function App() {
 }
 
 /* =====================================================
-   ROOT / ADMIN ROUTING
-===================================================== */
-
-function Root() {
-  const path = window.location.pathname;
-
-  /* ADMIN LOGIN */
-  if (path === "/admin") {
-    return (
-      <AdminLogin
-        onLogin={() => {
-          window.location.href = "/admin/dashboard";
-        }}
-      />
-    );
-  }
-
-  /* ADMIN DASHBOARD */
-  if (path === "/admin/dashboard") {
-    return <AdminDashboard />;
-  }
-
-  /* NORMAL PORTFOLIO */
-  return <App />;
-}
-
-/* =====================================================
    RENDER
 ===================================================== */
 
-createRoot(
-  document.getElementById("root")
-).render(
-  <Root />
-);
+createRoot(document.getElementById("root")).render(<App />);
